@@ -17,6 +17,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.5.43", features = ["derive"] }
+libc = "0.2.174"
 
 [dev-dependencies]
 assert_cmd = "2.0.17"

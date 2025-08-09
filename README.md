@@ -23,7 +23,7 @@ cargo install timeout-cli
 ## Usage
 
 ```
-timeout <SECONDS> <COMMAND> [ARGS]...
+timeout [OPTIONS] <SECONDS> <COMMAND> [ARGS]...
 ```
 
 ### Arguments
@@ -32,11 +32,18 @@ timeout <SECONDS> <COMMAND> [ARGS]...
 - `<COMMAND>` - Command to execute  
 - `[ARGS]...` - Arguments to pass to the command
 
+### Options
+
+- `-k, --kill-after <SECONDS>` - Also send KILL signal after this many additional seconds
+
 ### Exit Codes
 
 - **0-255**: The exit code returned by the executed command (when it completes successfully within the timeout)
 - **124**: Command timed out and was terminated
-- **1**: Error executing the command (e.g., command not found)
+- **125**: timeout command itself failed
+- **126**: Command found but cannot be invoked (permission denied)
+- **127**: Command not found
+- **137**: Command was killed with KILL signal (128+9)
 
 ## Examples
 
@@ -63,6 +70,15 @@ timeout 10 ls -la /home
 timeout 30 curl -s https://httpbin.org/delay/5
 ```
 
+### Kill-After Option
+
+```bash
+# Send TERM signal after 5 seconds, then KILL signal after 2 more seconds
+timeout 5 --kill-after 2 sleep 20
+# First sends SIGTERM at 5s, then SIGKILL at 7s if still running
+# Exit code: 137 (if killed with KILL signal)
+```
+
 ### Timeout Scenarios
 
 ```bash
@@ -75,7 +91,7 @@ timeout 10 sleep 2
 # Exit code: 0
 ```
 
-### Exit Code Forwarding
+### Exit Code Examples
 
 ```bash
 # Command that exits with specific code
@@ -84,7 +100,11 @@ timeout 5 sh -c "exit 42"
 
 # Non-existent command
 timeout 5 nonexistent-command
-# Exit code: 1 (with error message)
+# Exit code: 127 (command not found)
+
+# Permission denied
+timeout 5 /root/some-restricted-file
+# Exit code: 126 (cannot invoke)
 ```
 
 ### Complex Commands
@@ -166,9 +186,12 @@ This tool aims to be compatible with the standard Unix `timeout` command:
 | Basic timeout functionality | ✅ | ✅ |
 | Exit code 124 for timeouts | ✅ | ✅ |
 | Exit code forwarding | ✅ | ✅ |
+| Advanced exit codes (125, 126, 127, 137) | ✅ | ✅ |
+| Kill after additional time (`--kill-after`) | ✅ | ✅ |
 | Signal handling options | ⏳ | ✅ |
-| Preserve exit status | ✅ | ✅ |
-| Kill after additional time | ⏳ | ✅ |
+| Preserve exit status | ⏳ | ✅ |
+| Verbose output | ⏳ | ✅ |
+| Duration suffixes (m, h, d) | ⏳ | ✅ |
 
 ## Acknowledgments
 
