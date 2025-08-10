@@ -1,24 +1,52 @@
 # timeout-cli
 
+[![Crates.io](https://img.shields.io/crates/v/timeout-cli.svg)](https://crates.io/crates/timeout-cli)
+[![Documentation](https://docs.rs/timeout-cli/badge.svg)](https://docs.rs/timeout-cli)
+[![Build Status](https://github.com/yaleman/timeout-cli/workflows/CI/badge.svg)](https://github.com/yaleman/timeout-cli/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A simple and reliable command-line timeout utility written in Rust.
+
+## Overview
+
 `timeout-cli` runs a command with a specified time limit. If the command completes within the timeout period, it returns the command's exit code. If the timeout is exceeded, it terminates the command and returns exit code 124 (following standard timeout behavior).
 
 ## Installation
 
+### Via cargo-binstall (Recommended - Fastest)
+
+Install prebuilt binaries without compilation:
+
+```bash
+cargo binstall timeout-cli
+```
+
+This downloads prebuilt binaries from GitHub releases, making installation much faster than compiling from source.
+
+### Via cargo install (Compile from Source)
+
+```bash
+cargo install timeout-cli
+```
+
+### From GitHub Releases
+
+Download prebuilt binaries for your platform from the [releases page](https://github.com/yaleman/timeout-cli/releases).
+
+Available for:
+- Linux (x64, ARM64, musl)
+- macOS (x64, ARM64) 
+- Windows (x64)
+
 ### From Source
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/yaleman/timeout-cli.git
 cd timeout-cli
 cargo build --release
 ```
 
 The binary will be available at `target/release/timeout`.
-
-### Using Cargo
-
-```bash
-cargo install timeout-cli
-```
 
 ## Usage
 

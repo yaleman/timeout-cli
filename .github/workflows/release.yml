@@ -1,0 +1,238 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.release.outputs.upload_url }}
+      release_id: ${{ steps.release.outputs.id }}
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Get the release version from the tag
+      shell: bash
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+    
+    - name: Extract changelog entry
+      id: changelog
+      shell: bash
+      run: |
+        # Extract the version section from CHANGELOG.md
+        VERSION_NUMBER=${VERSION#v}
+        awk "/^## \[${VERSION_NUMBER}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > release_notes.md
+        echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+        cat release_notes.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      id: release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.VERSION }}
+        release_name: timeout-cli ${{ env.VERSION }}
+        body: ${{ steps.changelog.outputs.release_notes }}
+        draft: false
+        prerelease: false
+
+  build-release:
+    name: Build Release
+    needs: ['create-release']
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [linux, linux-arm, linux-musl, macos, macos-arm, windows]
+        include:
+        - build: linux
+          os: ubuntu-latest
+          rust: stable
+          target: x86_64-unknown-linux-gnu
+          archive-name: timeout-cli-${{ needs.create-release.outputs.VERSION }}-x86_64-unknown-linux-gnu.tar.gz
+        - build: linux-arm
+          os: ubuntu-latest
+          rust: stable
+          target: aarch64-unknown-linux-gnu
+          archive-name: timeout-cli-${{ needs.create-release.outputs.VERSION }}-aarch64-unknown-linux-gnu.tar.gz
+        - build: linux-musl
+          os: ubuntu-latest
+          rust: stable
+          target: x86_64-unknown-linux-musl
+          archive-name: timeout-cli-${{ needs.create-release.outputs.VERSION }}-x86_64-unknown-linux-musl.tar.gz
+        - build: macos
+          os: macos-latest
+          rust: stable
+          target: x86_64-apple-darwin
+          archive-name: timeout-cli-${{ needs.create-release.outputs.VERSION }}-x86_64-apple-darwin.tar.gz
+        - build: macos-arm
+          os: macos-latest
+          rust: stable
+          target: aarch64-apple-darwin
+          archive-name: timeout-cli-${{ needs.create-release.outputs.VERSION }}-aarch64-apple-darwin.tar.gz
+        - build: windows
+          os: windows-latest
+          rust: stable
+          target: x86_64-pc-windows-msvc
+          archive-name: timeout-cli-${{ needs.create-release.outputs.VERSION }}-x86_64-pc-windows-msvc.zip
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Get the release version from the tag
+      shell: bash
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+        target: ${{ matrix.target }}
+    
+    - name: Install cross-compilation tools
+      shell: bash
+      run: |
+        if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
+          sudo apt update
+          sudo apt install gcc-aarch64-linux-gnu
+        elif [[ "${{ matrix.target }}" == "x86_64-unknown-linux-musl" ]]; then
+          sudo apt update
+          sudo apt install musl-tools
+        fi
+    
+    - name: Build release binary
+      shell: bash
+      run: |
+        if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
+          export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+        fi
+        cargo build --verbose --release --target ${{ matrix.target }}
+        
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          bin="target/${{ matrix.target }}/release/timeout.exe"
+        else
+          bin="target/${{ matrix.target }}/release/timeout"
+        fi
+        
+        echo "BIN=$bin" >> $GITHUB_ENV
+    
+    - name: Strip release binary (unix)
+      if: matrix.build != 'windows'
+      shell: bash
+      run: |
+        case ${{ matrix.target }} in
+          aarch64-unknown-linux-gnu)
+            aarch64-linux-gnu-strip "$BIN"
+            ;;
+          x86_64-unknown-linux-musl)
+            strip "$BIN"
+            ;;
+          x86_64-unknown-linux-gnu)
+            strip "$BIN"
+            ;;
+          *)
+            strip "$BIN"
+            ;;
+        esac
+    
+    - name: Determine archive name
+      shell: bash
+      run: |
+        version="${VERSION#v}"
+        echo "ARCHIVE=timeout-cli-v$version-${{ matrix.target }}" >> $GITHUB_ENV
+    
+    - name: Creating directory for archive
+      shell: bash
+      run: |
+        mkdir -p "$ARCHIVE"/{complete,doc}
+        cp "$BIN" "$ARCHIVE"/
+        cp {README.md,LICENSE,CHANGELOG.md} "$ARCHIVE"/doc/
+    
+    - name: Generate completions
+      shell: bash
+      run: |
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          "./$BIN" --help > "$ARCHIVE"/complete/timeout.txt
+        else
+          "./$BIN" --help > "$ARCHIVE"/complete/timeout.txt
+        fi
+    
+    - name: Create archive
+      shell: bash
+      run: |
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          7z a "$ARCHIVE.zip" "$ARCHIVE"
+          echo "ASSET=$ARCHIVE.zip" >> $GITHUB_ENV
+        else
+          tar czf "$ARCHIVE.tar.gz" "$ARCHIVE"
+          echo "ASSET=$ARCHIVE.tar.gz" >> $GITHUB_ENV
+        fi
+    
+    - name: Upload release archive
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: ${{ env.ASSET }}
+        asset_name: ${{ env.ASSET }}
+        asset_content_type: application/octet-stream
+
+  checksums:
+    name: Generate Checksums
+    runs-on: ubuntu-latest
+    needs: ['create-release', 'build-release']
+    steps:
+    - name: Download all release assets
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const { execSync } = require('child_process');
+          
+          // Get all release assets
+          const release = await github.rest.repos.getRelease({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            release_id: '${{ needs.create-release.outputs.release_id }}'
+          });
+          
+          const assets = release.data.assets;
+          let checksums = '';
+          
+          for (const asset of assets) {
+            // Download each asset
+            const response = await github.rest.repos.getReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              asset_id: asset.id,
+              headers: { accept: 'application/octet-stream' }
+            });
+            
+            fs.writeFileSync(asset.name, Buffer.from(response.data));
+            
+            // Generate SHA256 checksum
+            const checksum = execSync(`sha256sum ${asset.name}`).toString().trim();
+            checksums += checksum + '\n';
+          }
+          
+          fs.writeFileSync('checksums.txt', checksums);
+    
+    - name: Upload checksums
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: checksums.txt
+        asset_name: checksums.txt
+        asset_content_type: text/plain

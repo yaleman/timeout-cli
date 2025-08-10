@@ -10,6 +10,7 @@ use std::io;
 #[derive(Parser)]
 #[command(name = "timeout")]
 #[command(about = "Run a command with a timeout")]
+#[command(version)]
 struct Args {
     #[arg(help = "Number of seconds to wait before timing out")]
     seconds: u64,
@@ -216,7 +217,7 @@ fn main() -> ExitCode {
     let exit_code = match result {
         TimeoutResult::Completed(exit_code) => {
             debug_print!(verbose, "Command completed normally with exit code {}", exit_code);
-            if exit_code >= 0 && exit_code <= 255 {
+            if (0..=255).contains(&exit_code) {
                 ExitCode::from(exit_code as u8)
             } else {
                 ExitCode::from(1)

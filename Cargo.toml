@@ -1,6 +1,6 @@
 [package]
 name = "timeout-cli"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["James Hodgkinson <james@terminaloutcomes.com>"]
 edition = "2024"
 description = "A simple and reliable command-line timeout utility"
@@ -8,12 +8,17 @@ readme = "README.md"
 license = "MIT"
 keywords = ["timeout", "cli", "command", "process", "utility"]
 categories = ["command-line-utilities"]
-repository = "https://github.com/your-username/timeout-cli"
-homepage = "https://github.com/your-username/timeout-cli"
+repository = "https://github.com/yaleman/timeout-cli"
+homepage = "https://github.com/yaleman/timeout-cli"
+documentation = "https://docs.rs/timeout-cli"
 
 [[bin]]
 name = "timeout"
 path = "src/main.rs"
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-v{ version }-{ target }.{ archive-format }"
+bin-dir = "{ bin }{ binary-ext }"
 
 [dependencies]
 clap = { version = "4.5.43", features = ["derive"] }
