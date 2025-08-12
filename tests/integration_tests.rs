@@ -106,7 +106,7 @@ fn test_nonexistent_command() {
     cmd.args(["5", "this_command_does_not_exist"]);
 
     cmd.assert()
-        .code(127)  // New exit code for command not found
+        .code(127) // New exit code for command not found
         .stderr(predicate::str::contains("failed to run command"));
 }
 
@@ -208,44 +208,60 @@ fn test_multiple_timeouts_sequential() {
 fn test_kill_after_with_responsive_process() {
     let mut cmd = Command::cargo_bin("timeout").unwrap();
     cmd.args(["1", "--kill-after", "2", "sleep", "10"]);
-    
+
     let start = std::time::Instant::now();
-    cmd.assert()
-        .code(124); // Should timeout normally since sleep responds to SIGTERM
+    cmd.assert().code(124); // Should timeout normally since sleep responds to SIGTERM
     let elapsed = start.elapsed();
-    
+
     // Should timeout after ~1 second (sleep responds to SIGTERM)
-    assert!(elapsed >= Duration::from_millis(800), "Should timeout first: {:?}", elapsed);
-    assert!(elapsed < Duration::from_secs(2), "Should not wait for kill-after: {:?}", elapsed);
+    assert!(
+        elapsed >= Duration::from_millis(800),
+        "Should timeout first: {:?}",
+        elapsed
+    );
+    assert!(
+        elapsed < Duration::from_secs(2),
+        "Should not wait for kill-after: {:?}",
+        elapsed
+    );
 }
 
-#[test] 
+#[test]
 fn test_kill_after_with_unresponsive_process() {
     // Use a simple approach: create a process that sleeps and check timing
     // We'll rely on the fact that some processes might not respond immediately to SIGTERM
     let mut cmd = Command::cargo_bin("timeout").unwrap();
-    cmd.args(["1", "--kill-after", "1", "sh", "-c", 
-               "exec sleep 10"]); // exec replaces shell, so sleep gets the signals directly
-    
+    cmd.args(["1", "--kill-after", "1", "sh", "-c", "exec sleep 10"]); // exec replaces shell, so sleep gets the signals directly
+
     let start = std::time::Instant::now();
     let result = cmd.assert();
     let elapsed = start.elapsed();
-    
+
     // Should timeout after ~1 second - sleep should respond to SIGTERM, so we get 124, not 137
     // This test verifies the timing more than the exact signal behavior
     assert!(
-        result.get_output().status.code() == Some(124) || result.get_output().status.code() == Some(137),
-        "Expected timeout (124) or kill (137), got: {:?}", result.get_output().status.code()
+        result.get_output().status.code() == Some(124)
+            || result.get_output().status.code() == Some(137),
+        "Expected timeout (124) or kill (137), got: {:?}",
+        result.get_output().status.code()
     );
-    assert!(elapsed >= Duration::from_secs(1), "Should timeout first: {:?}", elapsed);
-    assert!(elapsed < Duration::from_secs(3), "Should not take too long: {:?}", elapsed);
+    assert!(
+        elapsed >= Duration::from_secs(1),
+        "Should timeout first: {:?}",
+        elapsed
+    );
+    assert!(
+        elapsed < Duration::from_secs(3),
+        "Should not take too long: {:?}",
+        elapsed
+    );
 }
 
 #[test]
 fn test_kill_after_shorter_than_command() {
     let mut cmd = Command::cargo_bin("timeout").unwrap();
     cmd.args(["3", "--kill-after", "1", "echo", "quick"]);
-    
+
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("quick"));
@@ -255,21 +271,28 @@ fn test_kill_after_shorter_than_command() {
 fn test_timeout_without_kill_after_still_works() {
     let mut cmd = Command::cargo_bin("timeout").unwrap();
     cmd.args(["1", "sleep", "5"]);
-    
+
     let start = std::time::Instant::now();
-    cmd.assert()
-        .code(124); // Regular timeout
+    cmd.assert().code(124); // Regular timeout
     let elapsed = start.elapsed();
-    
-    assert!(elapsed >= Duration::from_millis(800), "Should timeout: {:?}", elapsed);
-    assert!(elapsed < Duration::from_secs(2), "Should not take too long: {:?}", elapsed);
+
+    assert!(
+        elapsed >= Duration::from_millis(800),
+        "Should timeout: {:?}",
+        elapsed
+    );
+    assert!(
+        elapsed < Duration::from_secs(2),
+        "Should not take too long: {:?}",
+        elapsed
+    );
 }
 
 #[test]
 fn test_help_shows_kill_after() {
     let mut cmd = Command::cargo_bin("timeout").unwrap();
     cmd.arg("--help");
-    
+
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("kill-after"))
@@ -281,7 +304,7 @@ fn test_help_shows_kill_after() {
 fn test_verbose_mode() {
     let mut cmd = Command::cargo_bin("timeout").unwrap();
     cmd.args(["--verbose", "1", "echo", "test"]);
-    
+
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("test"))
@@ -292,21 +315,27 @@ fn test_verbose_mode() {
 fn test_exit_code_127_command_not_found() {
     let mut cmd = Command::cargo_bin("timeout").unwrap();
     cmd.args(["5", "definitely_nonexistent_command_12345"]);
-    
-    cmd.assert()
-        .code(127);
+
+    cmd.assert().code(127);
 }
 
 #[test]
 fn test_normal_timeout_without_kill_after() {
     let mut cmd = Command::cargo_bin("timeout").unwrap();
     cmd.args(["1", "sleep", "5"]);
-    
+
     let start = std::time::Instant::now();
-    cmd.assert()
-        .code(124); // Regular timeout
+    cmd.assert().code(124); // Regular timeout
     let elapsed = start.elapsed();
-    
-    assert!(elapsed >= Duration::from_millis(800), "Should timeout: {:?}", elapsed);
-    assert!(elapsed < Duration::from_secs(3), "Should not take too long: {:?}", elapsed);
+
+    assert!(
+        elapsed >= Duration::from_millis(800),
+        "Should timeout: {:?}",
+        elapsed
+    );
+    assert!(
+        elapsed < Duration::from_secs(3),
+        "Should not take too long: {:?}",
+        elapsed
+    );
 }
